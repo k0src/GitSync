@@ -294,100 +294,122 @@ async function replaceAllTabsWithRemote(remoteData) {
   if (!remoteData || !remoteData.windows || remoteData.windows.length === 0) {
     throw new Error("Nothing to pull.");
   }
-  // Get all current windows and tabs
+
   const currentWindows = await browser.windows.getAll({ populate: true });
+  const firstWindow =
+    currentWindows[0] || (await browser.windows.create({ focused: false }));
 
-  if (currentWindows.length === 0) {
-    // If no windows, create one
-    await browser.windows.create({ focused: false });
-  }
-
-  // Keep first local window for first remote window, remove all others
-  const firstWindow = currentWindows[0];
+  // Close all windows except the first one
   const windowsToClose = currentWindows.slice(1);
   await Promise.all(
     windowsToClose.map((win) => browser.windows.remove(win.id))
   );
 
-  // Replace tabs in first window with the first remote window
+  // First window
+  const originalTabIds = firstWindow.tabs.map((tab) => tab.id);
   const firstRemoteWindow = remoteData.windows[0];
-  const groups = firstRemoteWindow.groups || {};
-  let firstTabReplaced = false;
+  const createdTabsInfo = [];
 
-  for (const [groupName, tabs] of Object.entries(groups)) {
-    const newTabIds = [];
-
-    for (const tab of tabs) {
-      if (!isValidTabUrl(tab.url)) continue;
-
-      let newTab;
-
-      if (!firstTabReplaced && firstWindow.tabs.length > 0) {
-        // Replace first tab
-        await browser.tabs.update(firstWindow.tabs[0].id, {
-          url: tab.url,
-          pinned: tab.pinned,
-        });
-        newTab = firstWindow.tabs[0];
-        firstTabReplaced = true;
-      } else {
-        newTab = await browser.tabs.create({
+  // Create all new tabs for the first window
+  if (firstRemoteWindow && firstRemoteWindow.groups) {
+    for (const [groupName, tabs] of Object.entries(firstRemoteWindow.groups)) {
+      for (const tab of tabs) {
+        if (!isValidTabUrl(tab.url)) continue;
+        const newTab = await browser.tabs.create({
           windowId: firstWindow.id,
           url: tab.url,
           pinned: tab.pinned,
           active: false,
         });
+        createdTabsInfo.push({ tab: newTab, groupName: groupName });
       }
-
-      newTabIds.push(newTab.id);
-    }
-
-    // Create tab group
-    if (newTabIds.length > 0 && groupName !== "Ungrouped") {
-      const groupId = await browser.tabs.group({ tabIds: newTabIds });
-      await browser.tabGroups.update(groupId, { title: groupName });
     }
   }
 
-  // Handle the rest of the windows
-  for (let w = 1; w < remoteData.windows.length; w++) {
-    const remoteWindow = remoteData.windows[w];
-    const groups = remoteWindow.groups || {};
-    const allTabs = Object.values(groups).flat();
+  // Group the new tabs
+  const groupsToCreate = new Map();
+  for (const { tab, groupName } of createdTabsInfo) {
+    if (groupName !== "Ungrouped") {
+      if (!groupsToCreate.has(groupName)) {
+        groupsToCreate.set(groupName, []);
+      }
+      groupsToCreate.get(groupName).push(tab.id);
+    }
+  }
 
-    if (allTabs.length === 0) continue;
+  for (const [groupName, tabIds] of groupsToCreate) {
+    const groupId = await browser.tabs.group({ tabIds });
+    await browser.tabGroups.update(groupId, { title: groupName });
+  }
 
-    // Create the new window with the first tab's URL
-    const targetWindow = await browser.windows.create({
+  // Activate the first new tab
+  if (createdTabsInfo.length > 0) {
+    await browser.tabs.update(createdTabsInfo[0].tab.id, { active: true });
+  }
+
+  // Remove all original tabs from the first window
+  if (originalTabIds.length > 0) {
+    await browser.tabs.remove(originalTabIds);
+  }
+
+  // Remaining windows
+  for (let i = 1; i < remoteData.windows.length; i++) {
+    const remoteWindowData = remoteData.windows[i];
+    const allTabsInRemoteWindow = Object.values(
+      remoteWindowData.groups || {}
+    ).flat();
+    if (allTabsInRemoteWindow.length === 0) continue;
+
+    // Create a new window with one tab
+    const newWindow = await browser.windows.create({
       focused: false,
-      url: allTabs[0].url,
+      url: allTabsInRemoteWindow[0].url,
     });
 
-    const newTabIds = [targetWindow.tabs[0].id];
-
-    // Create the remaining tabs
-    for (let i = 1; i < allTabs.length; i++) {
-      const tab = allTabs[i];
-      const newTab = await browser.tabs.create({
-        windowId: targetWindow.id,
-        url: tab.url,
-        pinned: tab.pinned,
-        active: false,
-      });
-      newTabIds.push(newTab.id);
+    if (allTabsInRemoteWindow[0].pinned) {
+      await browser.tabs.update(newWindow.tabs[0].id, { pinned: true });
     }
 
-    // Groups
-    let offset = 0;
-    for (const [groupName, tabs] of Object.entries(groups)) {
-      if (groupName === "Ungrouped") {
-        offset += tabs.length;
-        continue;
+    const createdWindowTabsInfo = [
+      {
+        tab: newWindow.tabs[0],
+        groupName: Object.keys(remoteWindowData.groups).find((key) =>
+          remoteWindowData.groups[key].includes(allTabsInRemoteWindow[0])
+        ),
+      },
+    ];
+
+    // Create the rest of the tabs
+    for (let j = 1; j < allTabsInRemoteWindow.length; j++) {
+      const tabData = allTabsInRemoteWindow[j];
+      const newTab = await browser.tabs.create({
+        windowId: newWindow.id,
+        url: tabData.url,
+        pinned: tabData.pinned,
+        active: false,
+      });
+      createdWindowTabsInfo.push({
+        tab: newTab,
+        groupName: Object.keys(remoteWindowData.groups).find((key) =>
+          remoteWindowData.groups[key].includes(tabData)
+        ),
+      });
+    }
+
+    // Group the new tabs
+    const newWindowGroups = new Map();
+    for (const { tab, groupName } of createdWindowTabsInfo) {
+      if (groupName !== "Ungrouped") {
+        if (!newWindowGroups.has(groupName)) {
+          newWindowGroups.set(groupName, []);
+        }
+        newWindowGroups.get(groupName).push(tab.id);
       }
-      const groupTabIds = newTabIds.slice(offset, offset + tabs.length);
-      const groupId = await browser.tabs.group({ tabIds: groupTabIds });
+    }
+
+    for (const [groupName, tabIds] of newWindowGroups) {
+      const groupId = await browser.tabs.group({ tabIds });
       await browser.tabGroups.update(groupId, { title: groupName });
-      offset += tabs.length;
     }
   }
 }
