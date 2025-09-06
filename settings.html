@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitSync Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles/settings.css" />
+  </head>
+  <body>
+    <div class="settings-container">
+      <header>
+        <h1>GitSync Settings</h1>
+        <p>Configure your repository and settings to sync your browser tabs.</p>
+      </header>
+
+      <main>
+        <div class="settings-section">
+          <div class="input-group">
+            <label for="owner">GitHub Username/Organization</label>
+            <input type="text" id="owner" placeholder="e.g., your-username" />
+          </div>
+
+          <div class="input-group">
+            <label for="repo">Repository Name</label>
+            <input type="text" id="repo" placeholder="e.g., gitsync-data" />
+          </div>
+
+          <div class="input-group">
+            <div class="pat-label">
+              <label for="token">Personal Access Token</label>
+              <a
+                class="pat-icon"
+                href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+                target="_blank"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="lucide lucide-circle-question-mark-icon lucide-circle-question-mark"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <path d="M12 17h.01" />
+                </svg>
+              </a>
+            </div>
+            <input
+              type="password"
+              id="token"
+              placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            />
+          </div>
+
+          <div class="button-group">
+            <button id="test" class="btn-secondary">Test Connection</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="input-group">
+            <label for="blacklist">URL Filter / Blacklist</label>
+            <input
+              type="text"
+              id="blacklist"
+              placeholder="about:, moz-extension:, localhost"
+            />
+          </div>
+
+          <div class="input-group">
+            <label for="autopush">Auto Push (minutes)</label>
+            <input type="text" id="autopush" placeholder="0" />
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="button-group">
+            <button id="clear-token" class="btn-destructive">
+              Clear Token
+            </button>
+            <button id="clear-tabs" class="btn-destructive">
+              Clear All Saved Tabs
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <footer class="actions-footer">
+        <div id="status"></div>
+        <button id="save" class="btn-primary">Save Settings</button>
+      </footer>
+    </div>
+
+    <script src="settings.js"></script>
+  </body>
+</html>
