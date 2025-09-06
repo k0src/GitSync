@@ -8,3 +8,5 @@ The add-on provides manual controls to "push" (save) your current session and "p
 - Click "Generate new token," give it a name, set an expiration, and grant it the full repo scope.
 - Copy the generated token (`ghp_...`).
 - In the GitSync settings, enter your GitHub username, repository name, and the Personal Access Token.
+
+#### [Add to Firefox](https://addons.mozilla.org/en-US/firefox/addon/gitsync/)
