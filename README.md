@@ -10,3 +10,6 @@ The add-on provides manual controls to "push" (save) your current session and "p
 - In the GitSync settings, enter your GitHub username, repository name, and the Personal Access Token.
 
 #### [Add to Firefox](https://addons.mozilla.org/en-US/firefox/addon/gitsync/)
+
+Known issues:
+- Tabs with the same url on local and remote get duplicated. In process of being fixed. 
